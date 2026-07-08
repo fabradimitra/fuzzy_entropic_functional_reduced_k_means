@@ -76,9 +76,14 @@ CV_FERFRKM <- function(
         cnorm2_valid <- rowSums(X_valid^2)     # length n_valid
         vnorm2 <- rowSums(centers^2)           # length G
         dist2_valid <- outer(cnorm2_valid, vnorm2, "+") - 2 * (X_valid %*% t(centers))
-        U_valid <- exp(-dist2_valid / vars[2])
-        U_valid <- U_valid / rowSums(U_valid)
-        U_valid[U_valid < 1e-12] <- 1e-12
+        if(vars[2]==0){
+          U_valid <- matrix(0,nrow = nrow(X_valid), ncol = G)
+          U_valid[cbind(nrow(X_valid), max.col(-dist2_valid, ties.method = "first"))] <- 1
+        }else{
+          dist2_valid <- t(apply(dist2_valid,1,function(x){x<-x-min(x)}))
+          U_valid <- exp(-dist2_valid / vars[2])
+          U_valid <- U_valid / matrix(rowSums(U_valid),nrow(X_valid),G)
+        }
         D_valid <- diag(sqrt(colSums(U_valid)))
         D2_valid <- D_valid^2
         Cbar_valid <- diag(1/diag(D2_valid)) %*% t(U_valid) %*% X_valid

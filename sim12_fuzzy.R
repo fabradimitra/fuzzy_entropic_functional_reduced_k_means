@@ -17,12 +17,11 @@ randomstarts <- 5
 randomstarts_cv <- 1
 kmeans_starts <- 20
 lambda_init <- 1
-gamma_init <- 3
+gamma_init <- 1
 # Set up dimensions and centroids
-I <- 50
 J <- 101
 Q <- 2
-G <- 4
+G <- 8
 # smooth smooth
 psi1_smooth <- function(t) {
   t + sin(pi * t) * exp(-t)
@@ -37,13 +36,11 @@ psi2_wiggly <- function(t) {
   cos(10 * t)
 }
 # True A matrix (orthogonal)
-A <- matrix(c(1,0,1,-1,0,1,1,1), nrow= G, ncol = Q)
-# alpha <- c(1,1,1,1)
+A <- matrix(rnorm(G*Q),G,Q)
 # Evaluate the curves at a grid of observed points
 t_grid <- seq(-1, 1, length.out = J)
 f1 <- psi1_smooth(t_grid)
 f2 <- psi2_smooth(t_grid)
-sig <- 1
 B <- cbind(f1,f2)
 Curves <- A %*% t(B)
 res <- kspline(t_grid)
@@ -52,10 +49,11 @@ Pk <- res$Pk
 Lk <- res$Lk
 #
 IJ <- diag(J)
+sig <- 9 # (4 s-s, 0.4 for s-w, and 0.04 w-w)
+I <- 50
 # Monte Carlo simulations
 for(iter in c(1)){
   set.seed(iter)
-  # Simulate labels 
   # Draw data from a mixture of Gaussian distributions
   Dummy_labels <- t(rmultinom(
     n = I, size = 1, 
@@ -108,7 +106,7 @@ for(iter in c(1)){
                       A=init$A,
                       B=init$B,
                       lambda= lambda_best,
-                      gamma = gamma_best,
+                      gamma = gamma_init,
                       max_iter = Inf,
                       tol = 1e-8)
     if(cur_loss>res_cur$loss_function){
@@ -134,7 +132,6 @@ for(iter in c(1)){
 # Permute the estimated curves to match the true curves
 sum((out$est_centroids[perm,] - Curves)^2)
 sd((out$est_centroids[perm,] - Curves)^2)
-sum((out$est_centroids[perm,] - Curves)^2)
 # Plot the centroids and their reconstruction for one iteration ----
 tt <- seq(min(t_grid), max(t_grid), length.out = 400)
 Ym <- apply(Curves, 1, function(y) splinefun(t_grid, y, method = "natural")(tt))
