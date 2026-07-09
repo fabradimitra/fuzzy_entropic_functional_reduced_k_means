@@ -1,7 +1,6 @@
 require(mclust)
 require(clue)
 require(MASS)
-require(dirmult)
 #
 source("kspline.R")
 source("randgenuc.R")
@@ -21,7 +20,7 @@ gamma_init <- 1
 # Set up dimensions and centroids
 J <- 101
 Q <- 2
-G <- 8
+G <- 10
 # smooth smooth
 psi1_smooth <- function(t) {
   t + sin(pi * t) * exp(-t)
@@ -36,6 +35,7 @@ psi2_wiggly <- function(t) {
   cos(10 * t)
 }
 # True A matrix (orthogonal)
+set.seed(123)
 A <- matrix(rnorm(G*Q),G,Q)
 # Evaluate the curves at a grid of observed points
 t_grid <- seq(-1, 1, length.out = J)
@@ -49,10 +49,10 @@ Pk <- res$Pk
 Lk <- res$Lk
 #
 IJ <- diag(J)
-sig <- 9 # (4 s-s, 0.4 for s-w, and 0.04 w-w)
-I <- 50
+sig <- 9
+I <- 150
 # Monte Carlo simulations
-for(iter in c(1)){
+for(iter in c(70)){
   set.seed(iter)
   # Draw data from a mixture of Gaussian distributions
   Dummy_labels <- t(rmultinom(
@@ -106,7 +106,7 @@ for(iter in c(1)){
                       A=init$A,
                       B=init$B,
                       lambda= lambda_best,
-                      gamma = gamma_init,
+                      gamma = 0,
                       max_iter = Inf,
                       tol = 1e-8)
     if(cur_loss>res_cur$loss_function){
