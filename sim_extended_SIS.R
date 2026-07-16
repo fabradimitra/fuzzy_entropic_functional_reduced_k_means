@@ -15,13 +15,12 @@ source("make_folds.R")
 randomstarts <- 5
 randomstarts_cv <- 1
 kmeans_starts <- 20
-lambda_init <-0.01
-gamma_init <- 0
+lambda_init <- 1
+gamma_init <- 1
 # Set up dimensions and centroids
 J <- 101
-I <- 100
 Q <- 2
-G <- 6
+G <- 10
 # smooth smooth
 psi1_smooth <- function(t) {
   t + sin(pi * t) * exp(-t)
@@ -41,7 +40,7 @@ A <- matrix(rnorm(G*Q),G,Q)
 # Evaluate the curves at a grid of observed points
 t_grid <- seq(-1, 1, length.out = J)
 f1 <- psi1_smooth(t_grid)
-f2 <- psi2_wiggly(t_grid)
+f2 <- psi2_smooth(t_grid)
 B <- cbind(f1,f2)
 Curves <- A %*% t(B)
 res <- kspline(t_grid)
@@ -50,9 +49,10 @@ Pk <- res$Pk
 Lk <- res$Lk
 #
 IJ <- diag(J)
-sig <- 12
+sig <- 9
+I <- 200 #150
 # Monte Carlo simulations
-for(iter in c(1)){
+for(iter in c(4)){
   set.seed(iter)
   # Draw data from a mixture of Gaussian distributions
   Dummy_labels <- t(rmultinom(
@@ -84,14 +84,13 @@ for(iter in c(1)){
     ),
     type = "output"
   ))
-  lambda_best <- lambda_init#cv_res$par[1]
-  gamma_best <- gamma_init#cv_res$par[2]
+  lambda_best <- cv_res$par[1]
+  gamma_best <- cv_res$par[2]
   # Fit the best combination:
   cur_loss <- Inf
   for(start in seq_len(randomstarts)){
     if(start == 1){
-      #init <- init_FERFRKM(X, G, Q, seed = iter, nstart_kmeans = kmeans_starts) 
-      init <- list(U=Dummy_labels, A=A, B=B)
+      init <- init_FERFRKM(X, G, Q, seed = iter, nstart_kmeans = kmeans_starts) 
     }else{
       U_init <- randgenuc(I, G)
       A_init <- rand_orthogonal(G, Q)
@@ -99,8 +98,7 @@ for(iter in c(1)){
       init <- list(U=U_init, A=A_init, B=B_init)
     }
     # Run FERFRKM algorithm
-    res_cur <-  tryCatch(
-              FERFRKM(C=X,
+    res_cur <- FERFRKM(C=X,
                       K=K,
                       Pk=Pk,
                       Lk=Lk,
@@ -110,12 +108,7 @@ for(iter in c(1)){
                       lambda= lambda_best,
                       gamma = gamma_best,
                       max_iter = Inf,
-                      tol = 1e-8),
-      error = function(e) NULL
-    )
-    if (is.null(res_cur)) {
-      next
-    }
+                      tol = 1e-8)
     if(cur_loss>res_cur$loss_function){
       res <- res_cur
       cur_loss <- res$loss_function
@@ -137,7 +130,8 @@ for(iter in c(1)){
     "ARI: ", ARI, "\n")
 }
 # Permute the estimated curves to match the true curves
-mean((out$est_centroids[perm,] - Curves)^2)
+sum((out$est_centroids[perm,] - Curves)^2)
+sd((out$est_centroids[perm,] - Curves)^2)
 # Plot the centroids and their reconstruction for one iteration ----
 tt <- seq(min(t_grid), max(t_grid), length.out = 400)
 Ym <- apply(Curves, 1, function(y) splinefun(t_grid, y, method = "natural")(tt))
