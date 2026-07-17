@@ -1,8 +1,8 @@
 CV_FERFRKM <- function(
-  Xtr,
+  Xcv,
   G,
   Q,
-  K = kspline(seq_len(ncol(Xtr)))$K,
+  K = kspline(seq_len(ncol(Xcv)))$K,
   Pk = NULL,
   Lk = NULL,
   lambda_init = 1,
@@ -15,20 +15,20 @@ CV_FERFRKM <- function(
   seed = 123,
   randomstarts = 5
 ) {
-  stopifnot(is.matrix(Xtr), G >= 2, Q >= 1, Q <= min(G, ncol(Xtr)))
+  stopifnot(is.matrix(Xcv), G >= 2, Q >= 1, Q <= min(G, ncol(Xcv)))
   #
   if (is.null(Pk) || is.null(Lk)) {
-    ks <- kspline(seq_len(ncol(Xtr)))
-    Pk <- ks$Pk
-    Lk <- ks$Lk
+    resK <- kspline(seq_len(ncol(Xcv)))
+    Pk <- resK$Pk
+    Lk <- resK$Lk
   }
   #
   if (is.null(fold_ids)) {
-    fold_ids <- make_folds(nrow(Xtr), k = folds, seed = seed)
+    fold_ids <- make_folds(nrow(Xcv), k = folds, seed = seed)
   }
   folds <- sort(unique(fold_ids)) # fold labels
   #
-  cv_xie_beni_optim <- function(vars, folds, fold_ids, G, Q, 
+  fun_optim <- function(vars, folds, fold_ids, G, Q, 
     X, K, Pk, Lk, randomstarts, nstart_kmeans, seed, max_iter, tol){
     fold_scores <- numeric(length(folds))
     for (fold_idx in seq_along(folds)) {
@@ -40,16 +40,10 @@ CV_FERFRKM <- function(
       score_fin <- Inf
       for(start in seq_len(randomstarts)){
         if(start == 1){
-        init <- init_FERFRKM(
-        X = X_train,
-        G = G,
-        Q = Q,
-        seed = seed,
-        nstart_kmeans = nstart_kmeans
-        )
+        init <- init_FERFRKM(X = X_train, G = G, Q = Q, seed = seed, nstart_kmeans = nstart_kmeans)
         }else{
         U_init <- randgenuc(nrow(X_train), G)
-        A_init <- rand_orthogonal(G, Q)
+        A_init <- matrix(rnorm(G*Q),G,Q)
         B_init <- t(t(A_init) %*% solve(t(U_init) %*% U_init) %*% t(U_init) %*% X_train)
         init <- list(U = U_init, A = A_init, B = B_init)
         }
@@ -72,16 +66,16 @@ CV_FERFRKM <- function(
         if (is.null(fit)) {
             next
         }
-        centers <- fit$A %*% t(fit$B)   # G x J
-        cnorm2_valid <- rowSums(X_valid^2)     # length n_valid
-        vnorm2 <- rowSums(centers^2)           # length G
-        dist2_valid <- outer(cnorm2_valid, vnorm2, "+") - 2 * (X_valid %*% t(centers))
+        Centers <- fit$A %*% t(fit$B)   # G x J
+        xnorm2_valid <- rowSums(X_valid^2)     # length n_valid
+        cnorm2 <- rowSums(Centers^2)           # length G
+        Dist2_valid <- outer(xnorm2_valid, cnorm2, "+") - 2 * (X_valid %*% t(Centers))
         if(vars[2]==0){
           U_valid <- matrix(0,nrow = nrow(X_valid), ncol = G)
-          U_valid[cbind(nrow(X_valid), max.col(-dist2_valid, ties.method = "first"))] <- 1
+          U_valid[cbind(nrow(X_valid), max.col(-Dist2_valid, ties.method = "first"))] <- 1
         }else{
-          dist2_valid <- t(apply(dist2_valid,1,function(x){x<-x-min(x)}))
-          U_valid <- exp(-dist2_valid / vars[2])
+          Dist2_valid <- t(apply(Dist2_valid,1,function(x){x<-x-min(x)}))
+          U_valid <- exp(-Dist2_valid / vars[2])
           U_valid <- U_valid / matrix(rowSums(U_valid),nrow(X_valid),G)
         }
         D_valid <- diag(sqrt(colSums(U_valid)))
@@ -103,13 +97,13 @@ CV_FERFRKM <- function(
   }
   optim(
     par = c(lambda_init,gamma_init),
-    fn = cv_xie_beni_optim,
+    fn = fun_optim,
     method = "Nelder-Mead",
     folds = folds, 
     fold_ids = fold_ids,
     G = G,
     Q = Q,
-    X = Xtr,
+    X = Xcv,
     K = K,
     Pk = Pk,
     Lk = Lk,

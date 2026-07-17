@@ -67,7 +67,7 @@ FERFRKM <- function(C,K,Pk,Lk,U,A,B,lambda,gamma,max_iter = Inf,tol = 1e-6){
     loss_function_new <- loss_function(U, C, Cbar, D, A, B, K, lambda, gamma)
     dif <-  loss_function_curr - loss_function_new$lossp
     loss_function_curr <- loss_function_new$lossp
-    if(iter%%10==0){
+    if(iter%%100==0){
     cat("Iteration: ", iter, " Loss pen: ", loss_function_curr, " Loss: ", loss_function_new$loss,
     " Difference: ", dif, " Norm B: ", norm(B, type = "F")," Norm A: ", norm(A, type = "F"), "\n")
     }}

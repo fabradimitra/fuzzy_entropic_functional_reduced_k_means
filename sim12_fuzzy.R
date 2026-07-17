@@ -16,7 +16,7 @@ randomstarts <- 5
 randomstarts_cv <- 1
 kmeans_starts <- 20
 lambda_init <-0.01
-gamma_init <- 0
+gamma_init <- 1
 # Set up dimensions and centroids
 J <- 101
 I <- 100
@@ -52,7 +52,7 @@ Lk <- res$Lk
 IJ <- diag(J)
 sig <- 12
 # Monte Carlo simulations
-for(iter in c(1)){
+for(iter in c(5)){
   set.seed(iter)
   # Draw data from a mixture of Gaussian distributions
   Dummy_labels <- t(rmultinom(
@@ -65,9 +65,8 @@ for(iter in c(1)){
   }
   ))
   # Cross validation
-  invisible(capture.output(
-    cv_res <- CV_FERFRKM(
-      Xtr = X,
+  cv_res <- CV_FERFRKM(
+      Xcv = X,
       G = G,
       Q = Q,
       K = K,
@@ -81,20 +80,17 @@ for(iter in c(1)){
       nstart_kmeans = kmeans_starts,
       seed = iter,
       randomstarts = randomstarts_cv
-    ),
-    type = "output"
-  ))
-  lambda_best <- lambda_init#cv_res$par[1]
-  gamma_best <- gamma_init#cv_res$par[2]
+    )
+  lambda_best <- cv_res$par[1]
+  gamma_best <- cv_res$par[2]
   # Fit the best combination:
   cur_loss <- Inf
   for(start in seq_len(randomstarts)){
     if(start == 1){
-      #init <- init_FERFRKM(X, G, Q, seed = iter, nstart_kmeans = kmeans_starts) 
-      init <- list(U=Dummy_labels, A=A, B=B)
+      init <- init_FERFRKM(X, G, Q, seed = iter, nstart_kmeans = kmeans_starts) 
     }else{
       U_init <- randgenuc(I, G)
-      A_init <- rand_orthogonal(G, Q)
+      A_init <- matrix(rnorm(G*Q),G,Q)
       B_init <- t(t(A_init)%*%solve(t(U_init)%*%U_init)%*%t(U_init)%*%X)
       init <- list(U=U_init, A=A_init, B=B_init)
     }
@@ -111,7 +107,10 @@ for(iter in c(1)){
                       gamma = gamma_best,
                       max_iter = Inf,
                       tol = 1e-8),
-      error = function(e) NULL
+      error = function(e) {
+        warning(e)
+        NULL
+      }
     )
     if (is.null(res_cur)) {
       next
@@ -134,10 +133,8 @@ for(iter in c(1)){
   perm <- perm_hungarian_fast(Curves, out$est_centroids, J)
   mean((Dummy_labels-res$U[,perm])^2)
   cat("End Monte Carlo Simulation: ", iter, " Lambda* ", lambda_best, " Gamma* ", gamma_best,
-    "ARI: ", ARI, "\n")
+    "ARI: ", ARI, " SqE: ", sum(ABp[perm,] - Curves)^2,"\n")
 }
-# Permute the estimated curves to match the true curves
-mean((out$est_centroids[perm,] - Curves)^2)
 # Plot the centroids and their reconstruction for one iteration ----
 tt <- seq(min(t_grid), max(t_grid), length.out = 400)
 Ym <- apply(Curves, 1, function(y) splinefun(t_grid, y, method = "natural")(tt))
