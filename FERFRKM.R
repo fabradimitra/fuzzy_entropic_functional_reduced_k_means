@@ -48,15 +48,15 @@ FERFRKM <- function(C,K,Pk,Lk,U,A,B,lambda,gamma,max_iter = Inf,tol = 1e-6){
     A <- matrix(A, nrow = G, ncol = Q)
     #######################################################################################
     # Update U
-    distxmg2 <- t(matrix(rowSums((C%x%c(rep(1,G))-c(rep(1,I))%x%(A%*%t(B)))^2),G,I))
+    Distxmg2 <- t(matrix(rowSums((C%x%c(rep(1,G))-c(rep(1,I))%x%(A%*%t(B)))^2),G,I))
     if(gamma==0){
       Un <- matrix(0,nrow = I, ncol = G)
-      Un[cbind(seq_len(I), max.col(-distxmg2, ties.method = "first"))] <- 1
+      Un[cbind(seq_len(I), max.col(-Distxmg2, ties.method = "first"))] <- 1
       su <- colSums(Un)
       if(!any(su==0)){U <- Un}
     }else{
-      distxmg2 <- t(apply(distxmg2,1,function(x){x<-x-min(x)}))
-      U <- exp(-distxmg2/gamma)
+      Distxmg2 <- t(apply(Distxmg2,1,function(x){x<-x-min(x)}))
+      U <- exp(-Distxmg2/gamma)
       U <- U/matrix(rowSums(U),I,G)
     }
     D <- diag(sqrt(colSums(U)))

@@ -39,14 +39,20 @@ CV_FERFRKM <- function(
       X_valid <- X[valid_idx, , drop = FALSE]
       score_fin <- Inf
       for(start in seq_len(randomstarts)){
-        if(start == 1){
-        init <- init_FERFRKM(X = X_train, G = G, Q = Q, seed = seed, nstart_kmeans = nstart_kmeans)
-        }else{
-        U_init <- randgenuc(nrow(X_train), G)
-        A_init <- matrix(rnorm(G*Q),G,Q)
-        B_init <- t(t(A_init) %*% solve(t(U_init) %*% U_init) %*% t(U_init) %*% X_train)
-        init <- list(U = U_init, A = A_init, B = B_init)
-        }
+        # if(start == 1){
+        # init <- init_FERFRKM(X = X_train, G = G, Q = Q, seed = seed, nstart_kmeans = nstart_kmeans)
+        # }else{
+        # U_init <- randgenuc(nrow(X_train), G)
+        # A_init <- matrix(rnorm(G*Q),G,Q)
+        # B_init <- t(t(A_init) %*% solve(t(U_init) %*% U_init) %*% t(U_init) %*% X_train)
+        # init <- list(U = U_init, A = A_init, B = B_init)
+        # }
+        U_init <- randgenuc(nrow(X_train),G)
+        Cbar_init <- diag(1/colSums(U_init)) %*% t(U_init) %*% X_train
+        sv <- svd(Cbar_init, nu = Q, nv = Q)
+        A_init <- sv$u[, 1:Q, drop = FALSE]
+        B_init <- t(t(A_init)%*%solve(t(U_init)%*%U_init)%*%t(U_init)%*%X_train)
+        init <- list(U=U_init, A=A_init, B=B_init)
         fit <- tryCatch(
             FERFRKM(
               C = X_train,
